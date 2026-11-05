@@ -1,0 +1,8 @@
+order_id,sku,qty,amount,status,notes
+ORD-1001,SKU-A,2,19.99,shiped,
+ORD-1002,SKU-B,1,5.00,PENDING,
+ORD-1003,SKU-C,abc,12.50,completed,bad qty
+ORD-1004,SKU-A,-1,8.00,cancelled,negative qty
+ORD-1005,SKU-D,3,-2.00,shipped,negative amount
+ORD-1006,SKU-E,1,4.25,complete,typo status
+ORD-1007,SKU-F,2,10.00,pending,

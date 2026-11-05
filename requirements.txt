@@ -1,0 +1,9 @@
+fastapi>=0.115
+uvicorn[standard]>=0.32
+httpx>=0.25
+PyYAML>=6.0
+pandas>=2.0
+pydantic>=2.0
+python-multipart>=0.0.9
+contractgate>=0.4.0
+pytest>=8.0

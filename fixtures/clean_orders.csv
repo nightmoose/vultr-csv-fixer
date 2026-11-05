@@ -1,0 +1,4 @@
+order_id,sku,qty,amount,status
+ORD-3001,SKU-A,2,19.99,shipped
+ORD-3002,SKU-B,1,5.00,pending
+ORD-3003,SKU-C,4,40.00,completed

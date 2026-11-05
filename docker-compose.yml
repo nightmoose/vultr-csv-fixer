@@ -1,0 +1,27 @@
+# Local demo stack. LLM defaults to MOCK_LLM=1. Real Vultr Inference: set key in .env.
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "8080:8080"
+    environment:
+      MOCK_LLM: ${MOCK_LLM:-1}
+      FORCE_MOCK_SANDBOX: ${FORCE_MOCK_SANDBOX:-1}
+      VULTR_INFERENCE_API_KEY: ${VULTR_INFERENCE_API_KEY:-}
+      VULTR_INFERENCE_BASE_URL: ${VULTR_INFERENCE_BASE_URL:-https://api.vultrinference.com/v1}
+      ARTIFACTS_DIR: /app/artifacts
+    volumes:
+      - ./artifacts:/app/artifacts
+      # For real sandbox on a Docker-capable host, mount the socket and set FORCE_MOCK_SANDBOX=0:
+      # - /var/run/docker.sock:/var/run/docker.sock
+    profiles: ["api"]
+
+  # Build the sandbox worker image used by docker run --rm
+  sandbox:
+    build:
+      context: ./sandbox_worker
+      dockerfile: Dockerfile
+    image: csv-fixer-sandbox:local
+    profiles: ["build-sandbox"]
