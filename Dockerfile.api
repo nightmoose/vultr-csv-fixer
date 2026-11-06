@@ -29,17 +29,20 @@ COPY sandbox_worker ./sandbox_worker
 RUN pip install --no-cache-dir -r requirements.txt \
  && pip install --no-cache-dir -e .
 
-RUN mkdir -p /var/lib/csv-fixer/jobs /var/lib/csv-fixer/artifacts
+RUN mkdir -p /var/lib/csvfix-work/jobs /var/lib/csvfix-work/artifacts /var/lib/csvfix-work/tmp \
+ && chmod 777 /var/lib/csvfix-work /var/lib/csvfix-work/jobs /var/lib/csvfix-work/artifacts /var/lib/csvfix-work/tmp
 
 ENV PYTHONUNBUFFERED=1 \
     MOCK_LLM=0 \
     FORCE_MOCK_SANDBOX=0 \
-    JOBS_DIR=/var/lib/csv-fixer/jobs \
-    ARTIFACTS_DIR=/var/lib/csv-fixer/artifacts \
+    JOBS_DIR=/var/lib/csvfix-work/jobs \
+    ARTIFACTS_DIR=/var/lib/csvfix-work/artifacts \
+    HOST_JOBS_DIR=/var/lib/csvfix-work/jobs \
+    TMPDIR=/var/lib/csvfix-work/tmp \
     DEFAULT_CONTRACT=/app/fixtures/orders_contract.yaml \
     SANDBOX_IMAGE=csv-fixer-sandbox:local \
     VULTR_INFERENCE_BASE_URL=https://api.vultrinference.com/v1 \
-    VULTR_INFERENCE_MODEL=gpt-oss-120b
+    VULTR_INFERENCE_MODEL=glm-5.3-flash
 
 EXPOSE 8080
 CMD ["uvicorn", "csv_fixer.api:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "1"]

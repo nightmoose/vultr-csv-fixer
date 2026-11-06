@@ -1,7 +1,10 @@
+import tempfile
 from pathlib import Path
 
 from csv_fixer.config import Settings
 from csv_fixer.sandbox import SandboxRunner, build_docker_run_args, re_search_env, re_search_net
+
+ROOT = Path(__file__).resolve().parents[1]
 
 FIX = Path(__file__).resolve().parents[1] / "fixtures"
 
@@ -89,6 +92,51 @@ def test_refuses_host_execution_when_docker_missing(tmp_path, monkeypatch):
     assert result.exit_code == 127
     assert "refusing" in result.stderr
     assert not (work / "output.csv").exists()
+
+
+def test_sandbox_dockerfile_has_no_entrypoint():
+    text = (ROOT / "sandbox_worker" / "Dockerfile").read_text(encoding="utf-8")
+    instructions = [
+        line.strip()
+        for line in text.splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
+    assert not any(line.upper().startswith("ENTRYPOINT") for line in instructions)
+
+
+def test_mkdtemp_work_dir_is_world_writable(tmp_path):
+    work = Path(tempfile.mkdtemp(prefix="csvfix-", dir=tmp_path))
+    assert work.stat().st_mode & 0o777 == 0o700
+    settings = Settings(
+        force_mock_sandbox=True,
+        mock_llm=True,
+        jobs_dir=str(tmp_path / "jobs"),
+    )
+    SandboxRunner(settings).run_script(
+        code="print('hi')\n",
+        input_csv=FIX / "clean_orders.csv",
+        job_id="perm",
+        work_root=work,
+    )
+    assert work.stat().st_mode & 0o777 == 0o777
+    assert (work / "fix.py").stat().st_mode & 0o777 == 0o644
+    assert (work / "input.csv").stat().st_mode & 0o777 == 0o644
+
+
+def test_compose_wires_model_sandbox_and_shared_work_path():
+    text = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+    assert "env_file:" in text
+    assert ".env" in text
+    assert "VULTR_INFERENCE_MODEL:" in text
+    assert "glm-5.3-flash" in text
+    assert "VULTR_INFERENCE_API_KEY:" in text
+    assert "SANDBOX_MEMORY:" in text
+    assert "SANDBOX_TIMEOUT_SEC:" in text
+    assert "SANDBOX_CPUS:" in text
+    assert "/var/lib/csvfix-work" in text
+    assert "/var/run/docker.sock:/var/run/docker.sock" in text
+    assert "2375" not in text
+    assert "2376" not in text
 
 
 def test_mock_sandbox_timeout(tmp_path):

@@ -6,6 +6,8 @@ RUN useradd --create-home --uid 65534 --shell /usr/sbin/nologin nobody 2>/dev/nu
  && pip install --no-cache-dir "pandas==2.2.3"
 
 # No secrets baked in. Script + CSV arrive via bind-mount at /work.
+# No entrypoint: the control plane already runs `python /work/fix.py`.
+# An entrypoint of python would execute `python python /work/fix.py`
+# and fail with "can't open file '/work/python'".
 WORKDIR /work
 USER 65534:65534
-ENTRYPOINT ["python"]

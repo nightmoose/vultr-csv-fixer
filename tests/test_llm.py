@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from csv_fixer.config import Settings
+from csv_fixer.config import Settings, load_settings
 from csv_fixer.llm import LLMClient
 from csv_fixer.sandbox import re_search_env, re_search_net
 
@@ -9,6 +9,11 @@ FIX = Path(__file__).resolve().parents[1] / "fixtures"
 
 def _client() -> LLMClient:
     return LLMClient(Settings(mock_llm=True))
+
+
+def test_default_inference_model_is_in_the_vultr_catalog(monkeypatch):
+    monkeypatch.delenv("VULTR_INFERENCE_MODEL", raising=False)
+    assert load_settings().vultr_inference_model == "glm-5.3-flash"
 
 
 def test_safe_repair_is_not_flagged_as_hostile():

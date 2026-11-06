@@ -32,24 +32,32 @@ services:
         condition: service_completed_successfully
     ports:
       - "${PORT:-8080}:8080"
+    env_file:
+      - .env
     environment:
+      # Explicit so a missing .env key still has a safe default.
+      # These override env_file. Compose interpolates them from .env.
       MOCK_LLM: ${MOCK_LLM:-0}
       FORCE_MOCK_SANDBOX: ${FORCE_MOCK_SANDBOX:-0}
       VULTR_INFERENCE_API_KEY: ${VULTR_INFERENCE_API_KEY:-}
       VULTR_INFERENCE_BASE_URL: ${VULTR_INFERENCE_BASE_URL:-https://api.vultrinference.com/v1}
-      VULTR_INFERENCE_MODEL: ${VULTR_INFERENCE_MODEL:-gpt-oss-120b}
+      VULTR_INFERENCE_MODEL: ${VULTR_INFERENCE_MODEL:-glm-5.3-flash}
       SANDBOX_IMAGE: ${SANDBOX_IMAGE:-csv-fixer-sandbox:local}
       SANDBOX_TIMEOUT_SEC: ${SANDBOX_TIMEOUT_SEC:-30}
       SANDBOX_MEMORY: ${SANDBOX_MEMORY:-512m}
       SANDBOX_CPUS: ${SANDBOX_CPUS:-1}
       MAX_AGENT_RETRIES: ${MAX_AGENT_RETRIES:-3}
       MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-2000000}
-      JOBS_DIR: /var/lib/csv-fixer/jobs
-      ARTIFACTS_DIR: /var/lib/csv-fixer/artifacts
-      HOST_JOBS_DIR: ${HOST_DATA_DIR:-/var/lib/csv-fixer}/jobs
+      # Same path on the host and in this container. The host daemon
+      # bind-mounts this path into each sandbox; a container-only /tmp does not.
+      JOBS_DIR: ${HOST_DATA_DIR:-/var/lib/csvfix-work}/jobs
+      ARTIFACTS_DIR: ${HOST_DATA_DIR:-/var/lib/csvfix-work}/artifacts
+      HOST_JOBS_DIR: ${HOST_DATA_DIR:-/var/lib/csvfix-work}/jobs
+      TMPDIR: ${HOST_DATA_DIR:-/var/lib/csvfix-work}/tmp
       DEFAULT_CONTRACT: /app/fixtures/orders_contract.yaml
     volumes:
-      - ${HOST_DATA_DIR:-/var/lib/csv-fixer}:/var/lib/csv-fixer
+      # docker.sock is mounted only here. It is not published as a port.
+      - ${HOST_DATA_DIR:-/var/lib/csvfix-work}:${HOST_DATA_DIR:-/var/lib/csvfix-work}
       - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
       test:

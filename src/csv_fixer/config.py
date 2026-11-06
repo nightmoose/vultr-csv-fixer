@@ -10,7 +10,7 @@ from dataclasses import dataclass
 class Settings:
     vultr_inference_api_key: str = ""
     vultr_inference_base_url: str = "https://api.vultrinference.com/v1"
-    vultr_inference_model: str = "gpt-oss-120b"
+    vultr_inference_model: str = "glm-5.3-flash"
     mock_llm: bool = True
     sandbox_image: str = "csv-fixer-sandbox:local"
     sandbox_timeout_sec: int = 30
@@ -39,7 +39,7 @@ def load_settings() -> Settings:
         vultr_inference_base_url=os.getenv(
             "VULTR_INFERENCE_BASE_URL", "https://api.vultrinference.com/v1"
         ),
-        vultr_inference_model=os.getenv("VULTR_INFERENCE_MODEL", "gpt-oss-120b"),
+        vultr_inference_model=os.getenv("VULTR_INFERENCE_MODEL", "glm-5.3-flash"),
         mock_llm=_bool("MOCK_LLM", True),
         sandbox_image=os.getenv("SANDBOX_IMAGE", "csv-fixer-sandbox:local"),
         sandbox_timeout_sec=int(os.getenv("SANDBOX_TIMEOUT_SEC", "30")),

@@ -10,13 +10,13 @@ if [[ ! -f .env ]]; then
   echo "Set VULTR_INFERENCE_API_KEY and keep MOCK_LLM=0 for live inference."
 fi
 
-DATA="${HOST_DATA_DIR:-/var/lib/csv-fixer}"
-if [[ ! -d "$DATA/jobs" || ! -d "$DATA/artifacts" ]]; then
-  if ! mkdir -p "$DATA/jobs" "$DATA/artifacts" 2>/dev/null; then
-    echo "Could not create $DATA. Re-run with sudo, or set HOST_DATA_DIR to a directory you own."
-    exit 1
-  fi
+DATA="${HOST_DATA_DIR:-/var/lib/csvfix-work}"
+if ! mkdir -p "$DATA/jobs" "$DATA/artifacts" "$DATA/tmp" 2>/dev/null; then
+  echo "Could not create $DATA. Re-run with sudo, or set HOST_DATA_DIR to a directory you own."
+  exit 1
 fi
+# Sandbox user 65534 must be able to create output.csv in these directories.
+chmod 777 "$DATA" "$DATA/jobs" "$DATA/artifacts" "$DATA/tmp" 2>/dev/null || true
 
 docker compose up -d --build
 docker compose ps

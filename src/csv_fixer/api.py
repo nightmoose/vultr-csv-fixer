@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import shutil
 from contextlib import asynccontextmanager
@@ -18,7 +19,7 @@ from csv_fixer.audit import GLOBAL_AUDIT, containment_summary
 from csv_fixer.config import Settings, load_settings
 from csv_fixer.models import FixAttempt, new_job_id
 from csv_fixer.probes import HOSTILE_PROBE_SOURCE
-from csv_fixer.sandbox import SandboxRunner, docker_available
+from csv_fixer.sandbox import SandboxRunner, docker_available, prepare_work_dir
 from csv_fixer.validators import contractgate_available
 
 logger = logging.getLogger("csv_fixer")
@@ -37,11 +38,20 @@ DEMO_FIXTURES = {
 JOBS: dict[str, dict] = {}
 
 
+def _ensure_shared_dir(path: Path) -> None:
+    if not str(path):
+        return
+    prepare_work_dir(path)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = load_settings()
-    Path(settings.jobs_dir).mkdir(parents=True, exist_ok=True)
-    Path(settings.artifacts_dir).mkdir(parents=True, exist_ok=True)
+    _ensure_shared_dir(Path(settings.jobs_dir))
+    _ensure_shared_dir(Path(settings.artifacts_dir))
+    tmp = os.environ.get("TMPDIR", "")
+    if tmp:
+        _ensure_shared_dir(Path(tmp))
     yield
 
 
@@ -84,11 +94,11 @@ def _default_contract_path() -> Path:
 
 def _job_workdir(settings: Settings, job_id: str) -> Path:
     root = Path(settings.jobs_dir)
-    root.mkdir(parents=True, exist_ok=True)
+    prepare_work_dir(root)
     path = root / job_id
     if path.exists():
         shutil.rmtree(path, ignore_errors=True)
-    path.mkdir(parents=True, exist_ok=True)
+    prepare_work_dir(path, ancestor=root)
     return path
 
 

@@ -56,6 +56,8 @@ def test_index_is_the_demo_ui(client):
     assert "Blocked network" in text
     assert "Run containment drill" in text
     assert 'id="fix-form"' in text
+    assert 'href="/docs"' in text
+    assert "POST /fix" in text
 
 
 def test_fix_messy_returns_download(client):

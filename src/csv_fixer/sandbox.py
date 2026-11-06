@@ -107,6 +107,38 @@ def container_name_for(job_id: str) -> str:
     return f"csvfix-{safe}"[:63]
 
 
+def _is_relative_to(path: Path, parent: Path) -> bool:
+    try:
+        path.resolve().relative_to(parent.resolve())
+    except ValueError:
+        return False
+    return True
+
+
+def prepare_work_dir(path: Path, *, ancestor: Optional[Path] = None) -> None:
+    """Create ``path`` and make it writable by the sandbox user (uid 65534).
+
+    ``mkdtemp`` and ``mkdir`` both honor umask, so a root-owned work directory
+    is often mode 0700. The sandbox cannot create ``output.csv`` there.
+    ``chmod`` ignores umask. When ``ancestor`` is set (the shared jobs root),
+    every directory from ``path`` up to that root is opened the same way.
+    """
+    path.mkdir(parents=True, exist_ok=True)
+    os.chmod(path, 0o777)
+    if ancestor is None:
+        return
+    anchor = ancestor.resolve()
+    current = path.resolve()
+    while True:
+        try:
+            os.chmod(current, 0o777)
+        except OSError:
+            break
+        if current == anchor or anchor not in current.parents:
+            break
+        current = current.parent
+
+
 class SandboxRunner:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -120,9 +152,12 @@ class SandboxRunner:
         work_root: Optional[Path] = None,
     ) -> SandboxResult:
         work_root = work_root or Path(tempfile.mkdtemp(prefix=f"csvfix-{job_id}-"))
-        work_root.mkdir(parents=True, exist_ok=True)
-        # The sandbox user is 65534 and must be able to create output.csv.
-        os.chmod(work_root, 0o777)
+        jobs_root = Path(self.settings.jobs_dir)
+        # mkdtemp is 0700. chmod to 0777 so uid 65534 can write output.csv.
+        prepare_work_dir(
+            work_root,
+            ancestor=jobs_root if _is_relative_to(work_root, jobs_root) else None,
+        )
         script_path = work_root / "fix.py"
         in_path = work_root / "input.csv"
         out_path = work_root / "output.csv"

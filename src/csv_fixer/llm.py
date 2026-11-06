@@ -60,12 +60,23 @@ class LLMClient:
             "Content-Type": "application/json",
         }
         url = self.settings.vultr_inference_base_url.rstrip("/") + "/chat/completions"
-        with httpx.Client(timeout=60.0) as client:
+        # Catalog models answer in seconds. A wrong id can be routed to a slow
+        # model and used to die here at 60s with an empty body.
+        with httpx.Client(timeout=120.0) as client:
             resp = client.post(url, headers=headers, json=payload)
             resp.raise_for_status()
             data = resp.json()
-        content = data["choices"][0]["message"]["content"]
-        return extract_python_block(content)
+        content = (data["choices"][0]["message"].get("content") or "").strip()
+        if not content:
+            raise ValueError(
+                f"model {self.settings.vultr_inference_model} returned empty content"
+            )
+        code = extract_python_block(content)
+        if not code.strip():
+            raise ValueError(
+                f"model {self.settings.vultr_inference_model} returned no Python"
+            )
+        return code
 
     def _mock_code(
         self,

@@ -42,7 +42,7 @@ The control plane is the only long-running process. Each repair attempt is a sep
 | Vultr Cloud Compute (Ubuntu VM with Docker) | Runs the FastAPI control plane and the Docker engine |
 | Vultr Serverless Inference | All model calls (`VULTR_INFERENCE_BASE_URL`, default `https://api.vultrinference.com/v1`) |
 
-No GPU is attached to the VM. Job files live on the VM disk under `/var/lib/csv-fixer` and can be deleted with the job.
+No GPU is attached to the VM. Job files live on the VM disk under `/var/lib/csvfix-work` and can be deleted with the job.
 
 ## Containment
 
@@ -98,12 +98,15 @@ bash scripts/vm-up.sh
 Or the same steps by hand:
 
 ```bash
-sudo mkdir -p /var/lib/csv-fixer/jobs /var/lib/csv-fixer/artifacts
+sudo mkdir -p /var/lib/csvfix-work/jobs /var/lib/csvfix-work/artifacts /var/lib/csvfix-work/tmp
+sudo chmod 777 /var/lib/csvfix-work /var/lib/csvfix-work/jobs /var/lib/csvfix-work/artifacts /var/lib/csvfix-work/tmp
 docker compose up -d --build
 curl -fsS http://127.0.0.1:8080/health
 ```
 
-Open `http://<vm-public-ip>:8080`. Allow TCP 8080 in the Vultr firewall group for the instance. The API listens on `0.0.0.0` inside the container and Compose publishes `${PORT:-8080}`.
+Open `http://<vm-public-ip>:8080`. The page links to the Swagger UI at `/docs` and states that repairs are `POST /fix`. Allow TCP 8080 in the Vultr firewall group for the instance. The API listens on `0.0.0.0` inside the container and Compose publishes `${PORT:-8080}`.
+
+Compose reads `.env` (`env_file`) and also passes `MOCK_LLM`, `FORCE_MOCK_SANDBOX`, `VULTR_INFERENCE_API_KEY`, `VULTR_INFERENCE_MODEL`, and the `SANDBOX_*` variables. The API image includes the Docker client. The Docker socket is mounted only into the API container and is not published. Job files use the same path on the host and in the container (`/var/lib/csvfix-work` by default) so sandbox bind mounts resolve. A container-local `/tmp` does not.
 
 Health should show inference mode `vultr` and sandbox mode `docker`. Upload `fixtures/messy_orders.csv` (or click **Messy orders**) and download the fixed file. For the blocked-attempt shot, either click **Poisoned orders** while `MOCK_LLM=1`, or with live inference click **Run containment drill** if the model does not emit network or environment access.
 
@@ -119,7 +122,7 @@ Do not commit `.env`. `.env.example` lists every variable with empty secrets.
 |---|---|
 | `VULTR_INFERENCE_API_KEY` | Serverless Inference bearer token. Empty keeps the mock model even if `MOCK_LLM=0`. |
 | `VULTR_INFERENCE_BASE_URL` | Default `https://api.vultrinference.com/v1` |
-| `VULTR_INFERENCE_MODEL` | Default `gpt-oss-120b`. Use a model id enabled on the inference account. |
+| `VULTR_INFERENCE_MODEL` | Default `glm-5.3-flash` (about 7s). `qwen3.8-flash-next` (about 14s) is a fallback. `gpt-oss-120b` is not in the Vultr catalog; a request for it can be answered by another model and hit the client timeout with no code. |
 | `MOCK_LLM` | `1` deterministic offline model. `0` call Vultr when the key is set. |
 | `FORCE_MOCK_SANDBOX` | `1` skip Docker (tests, laptops). `0` require Docker and refuse host execution if it is down. |
 | `SANDBOX_IMAGE` | Image tag for the throwaway worker. Compose builds `csv-fixer-sandbox:local`. |
@@ -129,13 +132,14 @@ Do not commit `.env`. `.env.example` lists every variable with empty secrets.
 | `MAX_AGENT_RETRIES` | Default `3`. |
 | `MAX_UPLOAD_BYTES` | Default `2000000`. |
 | `PORT` | Host port published by Compose. Default `8080`. |
-| `HOST_DATA_DIR` | Absolute host path bind-mounted at `/var/lib/csv-fixer`. Default `/var/lib/csv-fixer`. |
-| `JOBS_DIR` | In-container job directory. Compose sets `/var/lib/csv-fixer/jobs`. |
-| `HOST_JOBS_DIR` | Host path of `JOBS_DIR`, so `docker run -v` mounts the right directory. Compose sets this. |
+| `HOST_DATA_DIR` | Absolute path used for job files on both the host and the API container. Default `/var/lib/csvfix-work`. |
+| `JOBS_DIR` | Job directory. Compose sets `${HOST_DATA_DIR}/jobs`, the same path inside the container. |
+| `HOST_JOBS_DIR` | Host path of `JOBS_DIR`. Compose sets it equal to `JOBS_DIR`. Leave it empty when you run `uvicorn` on the host and `JOBS_DIR` is already a host path. |
 | `ARTIFACTS_DIR` | Where fixed CSVs and job JSON are stored. |
+| `TMPDIR` | Temp dir for any `mkdtemp` fallback. Compose sets `${HOST_DATA_DIR}/tmp` so it is not a container-only `/tmp`. |
 | `DEFAULT_CONTRACT` | Contract used when the upload omits one. |
 
-`JOBS_DIR` and `HOST_JOBS_DIR` differ when the API runs inside Compose: the process writes `/var/lib/csv-fixer/jobs/...` and the host daemon mounts `${HOST_DATA_DIR}/jobs/...`. Leave `HOST_JOBS_DIR` empty when you run `uvicorn` directly on the host.
+The sandbox user is uid 65534. Work directories are created mode `0777` because `mkdtemp` and a restrictive umask otherwise leave them mode `0700`, and the sandbox cannot write `output.csv`. The worker image has no entrypoint; the control plane runs `python /work/fix.py`. An entrypoint of `python` makes that `python python /work/fix.py` and the sandbox dies with `can't open file '/work/python'`.
 
 ## HTTP API
 
