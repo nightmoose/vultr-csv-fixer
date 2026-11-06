@@ -19,6 +19,12 @@ class Settings:
     force_mock_sandbox: bool = False
     max_agent_retries: int = 3
     artifacts_dir: str = "artifacts"
+    jobs_dir: str = "jobs"
+    # Host path that corresponds to jobs_dir when the API runs in a container.
+    # Empty means jobs_dir is already a host path (API running on the host).
+    host_jobs_dir: str = ""
+    max_upload_bytes: int = 2_000_000
+    default_contract: str = ""
 
 
 def load_settings() -> Settings:
@@ -42,4 +48,8 @@ def load_settings() -> Settings:
         force_mock_sandbox=_bool("FORCE_MOCK_SANDBOX", False),
         max_agent_retries=int(os.getenv("MAX_AGENT_RETRIES", "3")),
         artifacts_dir=os.getenv("ARTIFACTS_DIR", "artifacts"),
+        jobs_dir=os.getenv("JOBS_DIR", "jobs"),
+        host_jobs_dir=os.getenv("HOST_JOBS_DIR", ""),
+        max_upload_bytes=int(os.getenv("MAX_UPLOAD_BYTES", "2000000")),
+        default_contract=os.getenv("DEFAULT_CONTRACT", ""),
     )

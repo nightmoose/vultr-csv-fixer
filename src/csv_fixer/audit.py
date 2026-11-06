@@ -49,5 +49,18 @@ class AuditLog:
         self._events.extend(events)
 
 
+def containment_summary(events: Iterable[AuditEvent]) -> dict[str, object]:
+    """Compact view of containment events for the API and the demo UI."""
+    items = list(events)
+    blocked_actions = [e.action for e in items if e.blocked]
+    return {
+        "network_blocked": any(e.action == "block_network" for e in items),
+        "env_blocked": any(e.action == "block_env" for e in items),
+        "timed_out": any(e.action == "timeout" for e in items),
+        "oom_blocked": any(e.action == "block_oom" for e in items),
+        "blocked_actions": blocked_actions,
+    }
+
+
 # Process-wide default used by API/CLI unless a caller injects its own.
 GLOBAL_AUDIT = AuditLog()

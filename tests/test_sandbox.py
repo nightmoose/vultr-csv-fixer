@@ -50,3 +50,56 @@ def test_pattern_helpers():
     assert re_search_net("socket.create_connection(('x', 1))")
     assert re_search_env("print(os.environ)")
     assert not re_search_net("print('hello')")
+
+
+def test_host_jobs_dir_rewrites_bind_mount(tmp_path):
+    settings = Settings(
+        force_mock_sandbox=True,
+        mock_llm=True,
+        jobs_dir=str(tmp_path / "container-jobs"),
+        host_jobs_dir=str(tmp_path / "host-jobs"),
+    )
+    work = tmp_path / "container-jobs" / "job1" / "attempt-1"
+    runner = SandboxRunner(settings)
+    result = runner.run_script(
+        code="print('hi')\n",
+        input_csv=FIX / "clean_orders.csv",
+        job_id="job1",
+        work_root=work,
+    )
+    mount = result.docker_args[result.docker_args.index("-v") + 1]
+    assert mount.startswith(str((tmp_path / "host-jobs").resolve()))
+    assert mount.endswith(":/work:rw")
+    assert "job1" in mount and "attempt-1" in mount
+    assert "--name" in result.docker_args
+
+
+def test_refuses_host_execution_when_docker_missing(tmp_path, monkeypatch):
+    monkeypatch.setattr("csv_fixer.sandbox.docker_available", lambda: False)
+    settings = Settings(force_mock_sandbox=False, mock_llm=True)
+    runner = SandboxRunner(settings)
+    work = tmp_path / "work"
+    result = runner.run_script(
+        code="open('/work/output.csv','w').write('leaked\\n')\n",
+        input_csv=FIX / "clean_orders.csv",
+        job_id="no-docker",
+        work_root=work,
+    )
+    assert result.ok is False
+    assert result.exit_code == 127
+    assert "refusing" in result.stderr
+    assert not (work / "output.csv").exists()
+
+
+def test_mock_sandbox_timeout(tmp_path):
+    settings = Settings(force_mock_sandbox=True, mock_llm=True, sandbox_timeout_sec=1)
+    runner = SandboxRunner(settings)
+    result = runner.run_script(
+        code="import time\ntime.sleep(30)\n",
+        input_csv=FIX / "clean_orders.csv",
+        job_id="t-time",
+        work_root=tmp_path / "work",
+    )
+    assert result.timed_out is True
+    assert result.ok is False
+    assert result.exit_code == 124

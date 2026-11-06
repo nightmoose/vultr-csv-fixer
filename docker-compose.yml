@@ -1,27 +1,65 @@
-# Local demo stack. LLM defaults to MOCK_LLM=1. Real Vultr Inference: set key in .env.
-services:
-  api:
-    build:
-      context: .
-      dockerfile: Dockerfile.api
-    ports:
-      - "8080:8080"
-    environment:
-      MOCK_LLM: ${MOCK_LLM:-1}
-      FORCE_MOCK_SANDBOX: ${FORCE_MOCK_SANDBOX:-1}
-      VULTR_INFERENCE_API_KEY: ${VULTR_INFERENCE_API_KEY:-}
-      VULTR_INFERENCE_BASE_URL: ${VULTR_INFERENCE_BASE_URL:-https://api.vultrinference.com/v1}
-      ARTIFACTS_DIR: /app/artifacts
-    volumes:
-      - ./artifacts:/app/artifacts
-      # For real sandbox on a Docker-capable host, mount the socket and set FORCE_MOCK_SANDBOX=0:
-      # - /var/run/docker.sock:/var/run/docker.sock
-    profiles: ["api"]
+# Control plane + throwaway sandbox image.
+# For an Ubuntu Vultr Cloud Compute VM that already has Docker Engine.
+#
+#   cp .env.example .env
+#   # set VULTR_INFERENCE_API_KEY and leave MOCK_LLM=0 for live inference
+#   docker compose up -d --build
+#
+# The API container uses the host Docker socket to run one sandbox per attempt.
+# Job files sit on a bind mount so the host daemon sees the same paths the
+# container writes. Sandboxes do not receive the socket, the API key, or a network.
 
-  # Build the sandbox worker image used by docker run --rm
+name: csv-fixer
+
+services:
   sandbox:
     build:
       context: ./sandbox_worker
       dockerfile: Dockerfile
-    image: csv-fixer-sandbox:local
-    profiles: ["build-sandbox"]
+    image: ${SANDBOX_IMAGE:-csv-fixer-sandbox:local}
+    entrypoint: ["python", "-c", "print('csv-fixer sandbox image is ready')"]
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    image: csv-fixer-api:local
+    restart: unless-stopped
+    init: true
+    depends_on:
+      sandbox:
+        condition: service_completed_successfully
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      MOCK_LLM: ${MOCK_LLM:-0}
+      FORCE_MOCK_SANDBOX: ${FORCE_MOCK_SANDBOX:-0}
+      VULTR_INFERENCE_API_KEY: ${VULTR_INFERENCE_API_KEY:-}
+      VULTR_INFERENCE_BASE_URL: ${VULTR_INFERENCE_BASE_URL:-https://api.vultrinference.com/v1}
+      VULTR_INFERENCE_MODEL: ${VULTR_INFERENCE_MODEL:-gpt-oss-120b}
+      SANDBOX_IMAGE: ${SANDBOX_IMAGE:-csv-fixer-sandbox:local}
+      SANDBOX_TIMEOUT_SEC: ${SANDBOX_TIMEOUT_SEC:-30}
+      SANDBOX_MEMORY: ${SANDBOX_MEMORY:-512m}
+      SANDBOX_CPUS: ${SANDBOX_CPUS:-1}
+      MAX_AGENT_RETRIES: ${MAX_AGENT_RETRIES:-3}
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-2000000}
+      JOBS_DIR: /var/lib/csv-fixer/jobs
+      ARTIFACTS_DIR: /var/lib/csv-fixer/artifacts
+      HOST_JOBS_DIR: ${HOST_DATA_DIR:-/var/lib/csv-fixer}/jobs
+      DEFAULT_CONTRACT: /app/fixtures/orders_contract.yaml
+    volumes:
+      - ${HOST_DATA_DIR:-/var/lib/csv-fixer}:/var/lib/csv-fixer
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2)",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s

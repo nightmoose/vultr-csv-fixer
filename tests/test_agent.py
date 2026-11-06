@@ -3,7 +3,7 @@ from pathlib import Path
 from csv_fixer.agent import CsvFixAgent
 from csv_fixer.audit import AuditLog
 from csv_fixer.config import Settings
-from csv_fixer.models import BlockReason
+from csv_fixer.models import BlockReason, SandboxResult
 
 FIX = Path(__file__).resolve().parents[1] / "fixtures"
 
@@ -43,3 +43,49 @@ def test_poisoned_csv_containment_moment(tmp_path):
     assert any(e.action == "block_network" for e in blocked) or any(
         e.action == "block_env" for e in blocked
     )
+
+
+class _TimeoutSandbox:
+    def run_script(self, **kwargs):
+        return SandboxResult(
+            ok=False,
+            exit_code=124,
+            timed_out=True,
+            destroyed=True,
+            stderr="killed",
+        )
+
+
+def test_timeout_is_audited(tmp_path):
+    settings = Settings(mock_llm=True, force_mock_sandbox=True, max_agent_retries=1)
+    audit = AuditLog()
+    agent = CsvFixAgent(settings=settings, audit=audit, sandbox=_TimeoutSandbox())
+    result = agent.run(
+        csv_path=FIX / "messy_orders.csv",
+        contract_path=FIX / "orders_contract.yaml",
+        work_root=tmp_path / "runs",
+    )
+    assert result.success is False
+    timeouts = [e for e in result.audit if e.action == "timeout"]
+    assert timeouts and timeouts[0].blocked is True
+    assert timeouts[0].block_reason == BlockReason.TIMEOUT
+
+
+class _BoomLLM:
+    def propose_fix_code(self, **kwargs):
+        raise RuntimeError("Bearer sk-secret-should-not-leak inference down")
+
+
+def test_llm_error_redacts_bearer_token(tmp_path):
+    settings = Settings(mock_llm=True, force_mock_sandbox=True, max_agent_retries=1)
+    audit = AuditLog()
+    agent = CsvFixAgent(settings=settings, audit=audit, llm=_BoomLLM())
+    result = agent.run(
+        csv_path=FIX / "clean_orders.csv",
+        contract_path=FIX / "orders_contract.yaml",
+        work_root=tmp_path / "runs",
+    )
+    assert result.success is False
+    text = " ".join(e.detail for e in result.audit)
+    assert "Bearer [redacted]" in text
+    assert "sk-secret-should-not-leak" not in text
