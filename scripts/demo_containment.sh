@@ -12,3 +12,5 @@ echo "== messy CSV repair =="
 echo
 echo "== poisoned CSV containment =="
 "$PYTHON" -m csv_fixer.cli fixtures/poisoned_orders.csv fixtures/orders_contract.yaml
+echo
+echo "Web UI (same flags): uvicorn csv_fixer.api:app --host 127.0.0.1 --port 8080"

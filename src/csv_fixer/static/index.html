@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>vultr-csv-fixer</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%23d6ff4a'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='Georgia' font-size='16' fill='%23142000'%3E0%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,640&family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #101410;
+      --raise: #1a211b;
+      --raise-2: #232b24;
+      --line: #314036;
+      --text: #f3f7f1;
+      --muted: #c5d1c4;
+      --lime: #d6ff4a;
+      --lime-ink: #142000;
+      --red: #ff4d2e;
+      --red-deep: #3c1610;
+      --red-text: #ffe8e2;
+      --amber: #ffb020;
+      --ok: #9be59a;
+      --shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+      --sans: "Outfit", "Avenir Next", "Segoe UI", sans-serif;
+      --serif: "Fraunces", "Iowan Old Style", Palatino, serif;
+      --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.45;
+    }
+    button, input { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    :focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
+    .wrap { width: min(1120px, calc(100% - 32px)); margin: 0 auto; }
+    header.top {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      align-items: flex-end;
+      padding: 28px 0 18px;
+      border-bottom: 1px solid var(--line);
+    }
+    .brand { display: flex; gap: 14px; align-items: center; }
+    .mark {
+      width: 48px; height: 48px;
+      display: grid; place-items: center;
+      background: var(--lime); color: var(--lime-ink);
+      font-family: var(--serif); font-size: 26px; font-weight: 640;
+    }
+    .eyebrow {
+      margin: 0;
+      color: var(--lime);
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    h1 { margin: 0; font-family: var(--serif); font-size: 34px; font-weight: 560; letter-spacing: -0.03em; }
+    .pills { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+    .pill {
+      border: 1px solid var(--line);
+      background: var(--raise);
+      padding: 6px 10px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .pill strong { color: var(--text); font-weight: 500; }
+    .pill.is-live { border-color: var(--lime); color: var(--lime); }
+    .pill.is-live strong { color: var(--lime); }
+    .pill.is-bad { border-color: var(--red); color: var(--red-text); }
+    .lede {
+      margin: 18px 0 0;
+      max-width: 68ch;
+      color: var(--muted);
+    }
+    .api-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin: 12px 0 0;
+      font-family: var(--mono);
+      font-size: 13px;
+    }
+    .api-links a { color: var(--lime); }
+    .api-links code { color: var(--text); }
+    .envelope { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      background: var(--raise);
+      border: 1px solid var(--line);
+      padding: 8px 10px;
+      min-width: 120px;
+    }
+    .chip span { display: block; color: var(--muted); font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+    .chip b { font-weight: 560; }
+    .layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 22px;
+      padding: 22px 0 48px;
+      align-items: start;
+    }
+    .panel {
+      background: var(--raise);
+      border: 1px solid var(--line);
+      padding: 16px;
+    }
+    .panel h2, .results h2 {
+      margin: 0 0 12px;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-family: var(--mono);
+      font-weight: 500;
+      color: var(--muted);
+    }
+    .drop {
+      position: relative;
+      display: block;
+      border: 1px dashed var(--line);
+      padding: 14px;
+      margin-bottom: 10px;
+      background: var(--bg);
+    }
+    .drop input {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .drop-title { display: block; font-weight: 600; }
+    .drop-hint { display: block; color: var(--muted); font-size: 14px; margin-top: 2px; }
+    .fixtures { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 14px; }
+    .fixtures button, .ghost, .primary, .drill {
+      border: 1px solid var(--line);
+      background: var(--raise-2);
+      padding: 8px 10px;
+    }
+    .fixtures button[aria-pressed="true"] {
+      background: var(--lime);
+      color: var(--lime-ink);
+      border-color: var(--lime);
+    }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .primary, .drill { font-weight: 600; }
+    .primary { background: var(--lime); color: var(--lime-ink); border-color: var(--lime); }
+    .drill { background: transparent; color: var(--red-text); border-color: var(--red); }
+    .primary:disabled, .drill:disabled, .fixtures button:disabled { opacity: 0.55; cursor: progress; }
+    .help { color: var(--muted); font-size: 14px; margin: 12px 0 0; }
+    .results { min-height: 420px; }
+    .banner { padding: 16px 16px 14px; margin-bottom: 12px; }
+    .banner-kicker {
+      margin: 0;
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .banner h3 { margin: 4px 0 6px; font-family: var(--serif); font-size: 32px; line-height: 1.05; font-weight: 560; }
+    .banner p { margin: 0; }
+    .banner-blocked { background: var(--red); color: #1a0704; }
+    .banner-blocked .banner-kicker { color: #1a0704; }
+    .banner-ok { background: var(--lime); color: var(--lime-ink); }
+    .banner-ok .banner-kicker { color: var(--lime-ink); }
+    .banner-fail { background: var(--raise-2); border: 1px solid var(--amber); }
+    .banner-fail h3 { color: var(--amber); }
+    .meta-line { color: var(--muted); font-family: var(--mono); font-size: 12px; margin: 0 0 12px; }
+    .attempt {
+      border: 1px solid var(--line);
+      background: var(--bg);
+      margin-bottom: 10px;
+      padding: 12px;
+    }
+    .attempt.is-blocked { border-color: var(--red); background: var(--red-deep); }
+    .attempt.is-ok { border-color: #3e6b40; }
+    .attempt-top { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+    .attempt h3 { margin: 0; font-size: 18px; }
+    .stamp {
+      display: inline-block;
+      background: var(--red);
+      color: white;
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      padding: 5px 8px;
+    }
+    .stamp.ok { background: var(--ok); color: #062006; }
+    .stamp.neutral { background: var(--raise-2); color: var(--text); }
+    .reasons { margin: 8px 0; font-weight: 600; }
+    .attempt.is-blocked .reasons { color: var(--red-text); font-size: 18px; }
+    pre, code { font-family: var(--mono); }
+    pre {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      background: #0c0f0c;
+      border: 1px solid var(--line);
+      padding: 10px;
+      margin: 8px 0 0;
+      max-height: 220px;
+      overflow: auto;
+      font-size: 12.5px;
+      line-height: 1.4;
+    }
+    details { margin-top: 8px; }
+    summary { cursor: pointer; color: var(--muted); }
+    .violations { margin: 8px 0 0; padding-left: 18px; }
+    .download {
+      display: inline-block;
+      margin-top: 10px;
+      background: var(--lime-ink);
+      color: var(--lime);
+      text-decoration: none;
+      padding: 10px 12px;
+      font-weight: 600;
+      border: 1px solid var(--lime);
+    }
+    .banner-ok .download { background: var(--lime-ink); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 8px; border-bottom: 1px solid var(--line); }
+    th { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+    td.action, td.when { font-family: var(--mono); font-size: 12px; }
+    .audit-scroll { overflow-x: auto; max-width: 100%; }
+    tr.is-blocked td { background: #4a1a12; color: var(--red-text); }
+    tr.is-blocked td:first-child { box-shadow: inset 4px 0 0 var(--red); }
+    .badge {
+      display: inline-block;
+      margin-right: 6px;
+      padding: 2px 6px;
+      background: var(--red);
+      color: white;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+    }
+    .error {
+      background: var(--red-deep);
+      border: 1px solid var(--red);
+      color: var(--red-text);
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .running { color: var(--lime); font-family: var(--mono); }
+    .idle-list { margin: 0; padding-left: 18px; color: var(--muted); }
+    footer.colophon {
+      border-top: 1px solid var(--line);
+      padding: 16px 0 28px;
+      color: var(--muted);
+      font-size: 13px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    footer.colophon a { color: var(--lime); }
+    @media (max-width: 860px) {
+      header.top { flex-direction: column; align-items: flex-start; }
+      .pills { justify-content: flex-start; }
+      .layout { grid-template-columns: 1fr; }
+      h1 { font-size: 30px; }
+      .banner h3 { font-size: 28px; }
+      .fixtures { display: grid; grid-template-columns: 1fr; }
+      .actions { display: grid; grid-template-columns: 1fr; }
+      .chip { min-width: 0; flex: 1 1 46%; }
+      .wrap { width: min(1120px, calc(100% - 20px)); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div class="brand">
+        <div class="mark" aria-hidden="true">0</div>
+        <div>
+          <p class="eyebrow">NightMoose · Blast Radius Zero</p>
+          <h1>vultr-csv-fixer</h1>
+        </div>
+      </div>
+      <div class="pills" id="health-pills" aria-live="polite">
+        <span class="pill">Checking runtime…</span>
+      </div>
+    </header>
+    <p class="lede">
+      Upload a messy CSV. The agent writes a repair script, runs it in a throwaway
+      container, and returns the file only after the data contract passes.
+      Network, environment, and time limits are enforced on every attempt.
+    </p>
+    <p class="api-links">
+      <a href="/docs">API docs</a>
+      <span>Repair endpoint: <code>POST /fix</code></span>
+    </p>
+    <section class="envelope" aria-label="Containment envelope">
+      <div class="chip"><span>Network</span><b>none</b></div>
+      <div class="chip"><span>Environment</span><b>empty</b></div>
+      <div class="chip"><span>Memory</span><b id="env-memory">512m</b></div>
+      <div class="chip"><span>User</span><b>65534</b></div>
+      <div class="chip"><span>Capabilities</span><b>dropped</b></div>
+      <div class="chip"><span>Lifetime</span><b>removed after run</b></div>
+      <div class="chip"><span>Wall clock</span><b id="env-timeout">30s, then timeout</b></div>
+    </section>
+
+    <div class="layout">
+      <section class="panel">
+        <h2>Input</h2>
+        <form id="fix-form">
+          <label class="drop" id="csv-drop">
+            <input id="csv-file" type="file" accept=".csv,text/csv" />
+            <span class="drop-title">CSV</span>
+            <span class="drop-hint" id="csv-name">Drop a file, or browse</span>
+          </label>
+          <label class="drop">
+            <input id="contract-file" type="file" accept=".yaml,.yml,text/yaml,application/yaml" />
+            <span class="drop-title">Contract <span style="font-weight:400;color:var(--muted)">(optional)</span></span>
+            <span class="drop-hint" id="contract-name">Defaults to the bundled orders contract</span>
+          </label>
+          <div class="fixtures" role="group" aria-label="Demo fixtures">
+            <button type="button" data-fixture="messy_orders.csv">Messy orders</button>
+            <button type="button" data-fixture="poisoned_orders.csv">Poisoned orders</button>
+            <button type="button" data-fixture="clean_orders.csv">Clean orders</button>
+          </div>
+          <div class="actions">
+            <button class="primary" id="run-btn" type="submit">Run fixer</button>
+            <button class="drill" id="drill-btn" type="button">Run containment drill</button>
+          </div>
+          <p class="help" id="mode-help">Demo fixtures use the bundled orders contract.</p>
+        </form>
+      </section>
+
+      <section class="results" id="results" aria-live="polite">
+        <h2>Result</h2>
+        <div id="result-body">
+          <p>Run a repair to see each attempt, the contract report, and the containment audit.</p>
+          <ul class="idle-list">
+            <li>Attempts show the script, the sandbox result, and the validator report.</li>
+            <li>A blocked network, environment, or timeout row is marked in the audit log.</li>
+            <li>A contract-valid file can be downloaded.</li>
+          </ul>
+        </div>
+      </section>
+    </div>
+    <footer class="colophon">
+      <span>NightMoose · MIT License</span>
+      <span><a href="/docs">/docs</a> · POST /fix · Vultr Cloud Compute + Serverless Inference</span>
+    </footer>
+  </div>
+  <script>
+    const ACTION_LABELS = {
+      block_network: "Blocked network",
+      block_env: "Blocked environment",
+      timeout: "Timeout",
+      block_oom: "Blocked memory",
+      containment_policy: "Policy applied",
+      run_complete: "Sandbox finished",
+      propose_fix: "Propose repair",
+      llm_error: "Model error",
+      contract_check: "Contract check",
+      success: "Success",
+      failed: "Failed",
+      accepted: "Accepted",
+      start: "Drill started",
+      contained: "Probe finished",
+      sandbox_unavailable: "Sandbox unavailable"
+    };
+
+    const state = { health: null, fixture: null, running: false };
+
+    const resultBody = document.getElementById("result-body");
+    const csvInput = document.getElementById("csv-file");
+    const contractInput = document.getElementById("contract-file");
+    const csvName = document.getElementById("csv-name");
+    const contractName = document.getElementById("contract-name");
+    const runBtn = document.getElementById("run-btn");
+    const drillBtn = document.getElementById("drill-btn");
+    const modeHelp = document.getElementById("mode-help");
+
+    function el(tag, attrs, children) {
+      const node = document.createElement(tag);
+      if (attrs) {
+        Object.keys(attrs).forEach(function (key) {
+          if (key === "class") node.className = attrs[key];
+          else if (key === "colspan") node.colSpan = attrs[key];
+          else node.setAttribute(key, attrs[key]);
+        });
+      }
+      (children || []).forEach(function (child) {
+        if (child == null) return;
+        node.appendChild(typeof child === "string" ? document.createTextNode(child) : child);
+      });
+      return node;
+    }
+
+    function detailText(payload) {
+      if (!payload) return "Request failed";
+      if (typeof payload.detail === "string") return payload.detail;
+      if (Array.isArray(payload.detail)) return payload.detail.map(function (d) { return d.msg || JSON.stringify(d); }).join("; ");
+      return payload.message || "Request failed";
+    }
+
+    function setRunning(on, label) {
+      state.running = on;
+      runBtn.disabled = on;
+      drillBtn.disabled = on;
+      document.querySelectorAll("[data-fixture]").forEach(function (btn) { btn.disabled = on; });
+      if (on) {
+        resultBody.replaceChildren(
+          el("p", { class: "running" }, [label || "Running in the sandbox…"])
+        );
+      }
+    }
+
+    function selectedName(input, hint, fallback) {
+      const file = input.files && input.files[0];
+      hint.textContent = file ? file.name : fallback;
+    }
+
+    csvInput.addEventListener("change", function () {
+      if (csvInput.files && csvInput.files[0]) {
+        state.fixture = null;
+        document.querySelectorAll("[data-fixture]").forEach(function (btn) {
+          btn.setAttribute("aria-pressed", "false");
+        });
+      }
+      selectedName(csvInput, csvName, "Drop a file, or browse");
+    });
+    contractInput.addEventListener("change", function () {
+      selectedName(contractInput, contractName, "Defaults to the bundled orders contract");
+    });
+
+    document.querySelectorAll("[data-fixture]").forEach(function (btn) {
+      btn.setAttribute("aria-pressed", "false");
+      btn.addEventListener("click", function () {
+        state.fixture = btn.getAttribute("data-fixture");
+        csvInput.value = "";
+        csvName.textContent = state.fixture;
+        document.querySelectorAll("[data-fixture]").forEach(function (other) {
+          other.setAttribute("aria-pressed", other === btn ? "true" : "false");
+        });
+      });
+    });
+
+    document.getElementById("fix-form").addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      runFix();
+    });
+    drillBtn.addEventListener("click", runDrill);
+
+    async function runFix() {
+      const fd = new FormData();
+      const localCsv = csvInput.files && csvInput.files[0];
+      if (localCsv) {
+        fd.append("csv_file", localCsv, localCsv.name);
+      } else if (state.fixture) {
+        const res = await fetch("/fixtures/" + state.fixture);
+        if (!res.ok) { renderError("Could not load the demo fixture."); return; }
+        const blob = await res.blob();
+        fd.append("csv_file", blob, state.fixture);
+      } else {
+        renderError("Choose a CSV or one of the demo fixtures.");
+        return;
+      }
+      const localContract = contractInput.files && contractInput.files[0];
+      if (localContract) {
+        fd.append("contract_file", localContract, localContract.name);
+      }
+      const started = Date.now();
+      setRunning(true, "Running fixer…");
+      const timer = setInterval(function () {
+        if (!state.running) return;
+        const sec = Math.round((Date.now() - started) / 1000);
+        resultBody.replaceChildren(el("p", { class: "running" }, ["Running fixer… " + sec + "s"]));
+      }, 1000);
+      try {
+        const res = await fetch("/fix", { method: "POST", body: fd });
+        state.running = false;
+        clearInterval(timer);
+        const payload = await res.json().catch(function () { return {}; });
+        if (!res.ok) { renderError(detailText(payload)); return; }
+        renderResult(payload);
+      } catch (err) {
+        state.running = false;
+        clearInterval(timer);
+        renderError("The fixer request failed.");
+      } finally {
+        clearInterval(timer);
+        setRunning(false);
+      }
+    }
+
+    async function runDrill() {
+      setRunning(true, "Running containment drill…");
+      try {
+        const res = await fetch("/drill", { method: "POST" });
+        const payload = await res.json().catch(function () { return {}; });
+        if (!res.ok) { renderError(detailText(payload)); return; }
+        renderResult(payload);
+        const log = document.getElementById("audit-log");
+        if (log) log.scrollIntoView({ block: "nearest" });
+      } catch (err) {
+        renderError("The containment drill failed.");
+      } finally {
+        setRunning(false);
+      }
+    }
+
+    function renderError(message) {
+      resultBody.replaceChildren(el("div", { class: "error", role: "alert" }, [message]));
+    }
+
+    function flagLine(attempt) {
+      const box = attempt.sandbox || {};
+      const bits = [];
+      if (box.network_attempt_blocked) bits.push("Blocked network");
+      if (box.env_secret_attempt_blocked) bits.push("Blocked environment");
+      if (box.timed_out) bits.push("Timeout");
+      return bits;
+    }
+
+    function safeDownload(url) {
+      return typeof url === "string" && /^\/download\/[a-f0-9]{12}$/.test(url);
+    }
+
+    function renderResult(body) {
+      const containment = body.containment || {};
+      const blockedBits = [];
+      if (containment.network_blocked) blockedBits.push("Blocked network");
+      if (containment.env_blocked) blockedBits.push("Blocked environment");
+      if (containment.timed_out) blockedBits.push("Timeout");
+      if (containment.oom_blocked) blockedBits.push("Blocked memory");
+      const nodes = [];
+
+      if (blockedBits.length) {
+        const banner = el("div", { class: "banner banner-blocked" }, [
+          el("p", { class: "banner-kicker" }, [body.drill ? "Containment drill" : "Contained"]),
+          el("h3", null, [blockedBits.join(" · ")]),
+          el("p", null, [containedSentence(containment, !!body.drill)])
+        ]);
+        nodes.push(banner);
+      }
+
+      if (body.drill && !blockedBits.length) {
+        nodes.push(el("div", { class: "banner banner-fail" }, [
+          el("p", { class: "banner-kicker" }, ["Containment drill"]),
+          el("h3", null, ["Probe was not contained"]),
+          el("p", null, [body.message || "The hostile script did not trip a block."])
+        ]));
+      } else if (!body.drill && body.success) {
+        const ok = el("div", { class: "banner banner-ok" }, [
+          el("p", { class: "banner-kicker" }, ["Validated"]),
+          el("h3", null, [blockedBits.length ? "A later attempt passed the contract" : "Fixed CSV passed the contract"]),
+          el("p", null, [body.message || "Contract validators passed."])
+        ]);
+        if (safeDownload(body.download)) {
+          ok.appendChild(el("a", { class: "download", href: body.download }, ["Download fixed CSV"]));
+        }
+        nodes.push(ok);
+      } else if (!body.drill && !body.success && !blockedBits.length) {
+        nodes.push(el("div", { class: "banner banner-fail" }, [
+          el("p", { class: "banner-kicker" }, ["No file returned"]),
+          el("h3", null, ["Repair did not pass"]),
+          el("p", null, [body.message || "No contract-valid CSV."])
+        ]));
+      } else if (!body.drill && !body.success && blockedBits.length) {
+        nodes.push(el("div", { class: "banner banner-fail" }, [
+          el("p", { class: "banner-kicker" }, ["After containment"]),
+          el("h3", null, ["No contract-valid CSV"]),
+          el("p", null, [body.message || "Retries did not produce a valid file."])
+        ]));
+      }
+
+      const contractNote = body.contract_source === "default"
+        ? "Contract: bundled orders contract"
+        : body.contract_source === "upload"
+          ? "Contract: " + (body.contract_filename || "uploaded file")
+          : body.drill ? "Not a repair. No file is returned." : "";
+      nodes.push(el("p", { class: "meta-line" }, [
+        "Job " + (body.job_id || "") + (contractNote ? " · " + contractNote : "")
+      ]));
+
+      if (!body.drill && body.success && blockedBits.length === 0 && state.fixture === "poisoned_orders.csv") {
+        nodes.push(el("p", { class: "help" }, [
+          "The model did not try to use the network or the environment. Run the containment drill to watch the sandbox deny a hostile script."
+        ]));
+      }
+
+      (body.attempts || []).forEach(function (attempt) { nodes.push(renderAttempt(attempt)); });
+
+      if (safeDownload(body.download)) {
+        const preview = el("div", { class: "attempt is-ok" }, [
+          el("h3", null, ["Fixed file"]),
+          el("p", { class: "meta-line" }, ["First rows of the download"])
+        ]);
+        const pre = el("pre", { id: "fixed-preview" }, ["Loading preview…"]);
+        preview.appendChild(pre);
+        nodes.push(preview);
+        fetch(body.download).then(function (res) { return res.ok ? res.text() : ""; }).then(function (text) {
+          const lines = text.split(/\r?\n/).slice(0, 12).join("\n");
+          pre.textContent = lines || "(empty)";
+        }).catch(function () { pre.textContent = "(preview unavailable)"; });
+      }
+
+      nodes.push(renderAudit(body.audit || []));
+      resultBody.replaceChildren();
+      nodes.forEach(function (node) { resultBody.appendChild(node); });
+    }
+
+    function containedSentence(containment, drill) {
+      const parts = [];
+      if (containment.network_blocked) parts.push("network access");
+      if (containment.env_blocked) parts.push("an environment read");
+      if (containment.timed_out) parts.push("the wall-clock limit");
+      if (containment.oom_blocked) parts.push("the memory limit");
+      const what = parts.join(" and ") || "a sandbox limit";
+      if (drill) {
+        return "The hostile script hit " + what + ". The sandbox stopped it, and the container was removed.";
+      }
+      return "Generated code hit " + what + ". The sandbox stopped it, and the container was removed.";
+    }
+
+    function renderAttempt(attempt) {
+      const box = attempt.sandbox || {};
+      const reasons = flagLine(attempt);
+      const blocked = reasons.length > 0;
+      const passed = attempt.validation && attempt.validation.passed;
+      const card = el("article", { class: "attempt" + (blocked ? " is-blocked" : passed ? " is-ok" : "") });
+      const top = el("div", { class: "attempt-top" });
+      top.appendChild(el("h3", null, ["Attempt " + attempt.attempt]));
+      top.appendChild(el("span", { class: "stamp" + (blocked ? "" : passed ? " ok" : " neutral") }, [
+        blocked ? "Blocked" : passed ? "Passed" : "Failed"
+      ]));
+      card.appendChild(top);
+      const bits = [
+        "exit " + (box.exit_code == null ? "—" : box.exit_code),
+        (box.duration_ms || 0) + " ms",
+        box.destroyed ? "container removed" : "container still present"
+      ];
+      card.appendChild(el("p", { class: "meta-line" }, [bits.join(" · ")]));
+      if (reasons.length) card.appendChild(el("p", { class: "reasons" }, [reasons.join(" · ")]));
+      const output = [box.stdout, box.stderr].filter(Boolean).join("\n").trim();
+      if (output) card.appendChild(el("pre", null, [output]));
+      if (Array.isArray(box.docker_args) && box.docker_args.length) {
+        const args = el("details");
+        if (blocked) args.setAttribute("open", "");
+        args.appendChild(el("summary", null, ["Sandbox command"]));
+        args.appendChild(el("pre", null, [box.docker_args.join(" ")]));
+        card.appendChild(args);
+      }
+      if (attempt.code) {
+        const code = el("details");
+        code.appendChild(el("summary", null, ["Script"]));
+        code.appendChild(el("pre", null, [attempt.code]));
+        card.appendChild(code);
+      }
+      card.appendChild(renderValidation(attempt.validation, blocked));
+      return card;
+    }
+
+    function renderValidation(report, blocked) {
+      if (!report) {
+        return el("p", { class: "meta-line" }, [
+          blocked ? "Not validated — the sandbox did not return a CSV." : "Not validated."
+        ]);
+      }
+      const wrap = el("div");
+      wrap.appendChild(el("p", { class: "reasons" }, [
+        report.passed ? "Contract passed" : "Contract failed",
+        " · ",
+        String(report.rows_checked || 0) + " rows · " + (report.backend || "validator")
+      ]));
+      const violations = report.violations || [];
+      if (violations.length) {
+        const list = el("ul", { class: "violations" });
+        violations.slice(0, 20).forEach(function (v) {
+          list.appendChild(el("li", null, [(v.kind ? v.kind + ": " : "") + (v.field ? v.field + " — " : "") + (v.message || "")]));
+        });
+        wrap.appendChild(list);
+      }
+      return wrap;
+    }
+
+    function renderAudit(events) {
+      const section = el("section", { id: "audit-log" });
+      section.appendChild(el("h2", null, ["Audit log"]));
+      section.appendChild(el("p", { class: "meta-line" }, [
+        "Blocked network, blocked environment, and timeout rows are the containment record."
+      ]));
+      const table = el("table");
+      const head = el("thead");
+      head.appendChild(el("tr", null, [
+        el("th", null, ["Time"]),
+        el("th", null, ["Stage"]),
+        el("th", null, ["Action"]),
+        el("th", null, ["Detail"])
+      ]));
+      table.appendChild(head);
+      const body = el("tbody");
+      if (!events.length) {
+        body.appendChild(el("tr", null, [el("td", { colspan: "4" }, ["No audit events."])]));
+      }
+      events.forEach(function (event) {
+        const action = event.action || "";
+        const label = ACTION_LABELS[action] || action;
+        const actionCell = el("td", { class: "action" });
+        if (event.blocked) actionCell.appendChild(el("span", { class: "badge" }, ["Blocked"]));
+        actionCell.appendChild(document.createTextNode(label));
+        const row = el("tr", event.blocked ? { class: "is-blocked" } : null, [
+          el("td", { class: "when" }, [formatTs(event.ts)]),
+          el("td", null, [event.stage || ""]),
+          actionCell,
+          el("td", null, [event.detail || ""])
+        ]);
+        body.appendChild(row);
+      });
+      table.appendChild(body);
+      section.appendChild(el("div", { class: "audit-scroll" }, [table]));
+      return section;
+    }
+
+    function formatTs(ts) {
+      const d = new Date(ts);
+      if (Number.isNaN(d.getTime())) return "";
+      return d.toISOString().slice(11, 23) + "Z";
+    }
+
+    function renderHealth(health) {
+      state.health = health;
+      const pills = document.getElementById("health-pills");
+      const inference = health.inference || {};
+      const sandbox = health.sandbox || {};
+      const live = inference.mode === "vultr";
+      const inf = el("span", { class: "pill" + (live ? " is-live" : "") });
+      inf.appendChild(el("strong", null, [live ? "Inference · Vultr" : "Inference · mock"]));
+      if (live && inference.model) inf.appendChild(document.createTextNode(" " + inference.model));
+      else if (inference.reason) inf.appendChild(document.createTextNode(" · " + inference.reason));
+      const sandClass = sandbox.mode === "unavailable" ? " is-bad" : sandbox.mode === "docker" ? " is-live" : "";
+      const sand = el("span", { class: "pill" + sandClass });
+      const sandLabel = sandbox.mode === "docker" ? "Sandbox · docker" : sandbox.mode === "mock" ? "Sandbox · mock" : "Sandbox · unavailable";
+      sand.appendChild(el("strong", null, [sandLabel]));
+      const gate = el("span", { class: "pill" + (health.contractgate ? " is-live" : "") });
+      gate.appendChild(el("strong", null, [health.contractgate ? "Contract · contractgate" : "Contract · stub"]));
+      pills.replaceChildren(inf, sand, gate);
+      if (health.sandbox_memory) document.getElementById("env-memory").textContent = health.sandbox_memory;
+      if (health.sandbox_timeout_sec) document.getElementById("env-timeout").textContent = health.sandbox_timeout_sec + "s, then timeout";
+      modeHelp.textContent = live
+        ? "Live Vultr Serverless Inference. A poisoned CSV blocks only if the model emits network or environment access. The containment drill always runs a hostile script in the sandbox."
+        : "Mock model. A poisoned CSV emits hostile code on the first attempt so the audit log shows the block, then a safe retry repairs the file.";
+    }
+
+    fetch("/health").then(function (res) { return res.json(); }).then(renderHealth).catch(function () {
+      document.getElementById("health-pills").replaceChildren(el("span", { class: "pill is-bad" }, ["Health check failed"]));
+    });
+  </script>
+</body>
+</html>

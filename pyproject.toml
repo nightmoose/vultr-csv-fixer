@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vultr-csv-fixer"
-version = "0.1.0"
+version = "0.2.0"
 description = "Sandboxed CSV fixer: agent writes repair code, runs in throwaway Docker, DataContractGate validates before return."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -29,6 +29,9 @@ csv-fixer = "csv_fixer.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+csv_fixer = ["static/*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

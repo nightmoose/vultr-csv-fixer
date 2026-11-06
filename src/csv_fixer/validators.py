@@ -3,7 +3,7 @@
 Prefers the real ``contractgate`` Python SDK (local pure-Python validator).
 If the package is missing, falls back to a minimal column/type stub so the
 local prototype still runs offline. The stub is NOT a substitute for the
-gateway; see BUILD_NOTES.md for the real package hook.
+real package; install ``contractgate`` for demos and submissions.
 """
 
 from __future__ import annotations
