@@ -177,6 +177,8 @@ tests/                  Offline pytest
 docker-compose.yml      API + sandbox image build for the VM
 ```
 
+[lablab Vultr Agent Rush participation certificate](docs/certificates/lablab-vultr-agent-rush-participation-certificate.pdf)
+
 ## License
 
 MIT. Copyright (c) 2026 nightmoose.
